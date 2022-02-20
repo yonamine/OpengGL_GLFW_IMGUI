@@ -1,0 +1,55 @@
+//
+// GLSL                           | C/C++
+// -------------------------------+-------------------
+// vec3 - vector of 3 components  | glm::vec3
+//
+//
+//
+#version 330 core
+
+// Input vertex data, different for all executions of this shader.
+// "location = 0" refers to the buffer we used to feed the 
+// "vertexPosition_modelspace" attribute.
+//
+// - Each vertex can have numerous attributes:
+//       - position;
+//       - one or several colours;
+//       - one or several texture coordinates;
+//       - lots of other things...
+//
+// OpenGL doesn’t know what a colour is. It just sees a "vec3".
+// So we have to tell him which buffer corresponds to which input.
+// We do that by setting the layout to the same value as the first
+// parameter to "glVertexAttribPointer".
+// The value “0” is not important, it could be 12 (but no more than
+// "glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &v))", the important thing
+// is that it’s the same number on both sides
+//
+// "vertexPosition_modelspace" could have any other name. It will
+// contain the position of the vertex for each run of the vertex
+// shader.
+// "in" means that this is some input data.
+//
+//
+layout(location = 0) in vec3 vertexPosition_modelspace;
+//in vec2 position;
+
+// Values that stay constant for the whole mesh.
+// 'uniform' allows you to pass data to the shaders.
+uniform mat4 MVP;
+
+//
+// The function that is called for each vertex is called "main".
+//
+void main()
+{
+    // built-in variable: 'gl_Position'
+    //gl_Position.xyz = vertexPosition_modelspace;
+    //gl_Position.w = 1.0;
+
+    // Output position of the vertex, in clip space : MVP * position
+    gl_Position =  MVP * vec4(vertexPosition_modelspace, 1);
+
+    //gl_Position = vec4(position, 0.0, 1.0);
+
+}

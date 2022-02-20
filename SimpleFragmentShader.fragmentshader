@@ -1,0 +1,21 @@
+#version 330 core
+
+// 'uniform' allows you to pass data to the shaders.
+uniform vec3 triangleColor;
+
+// Output data
+//out vec3 outColor;
+out vec4 outColor;
+
+//
+//
+//
+//
+void main()
+{
+    // RGB
+    //outColor = vec3(1, 0, 0);
+
+    // Last component of output color is TRANSPARENCY.
+    outColor = vec4(triangleColor, 1.0);
+}
