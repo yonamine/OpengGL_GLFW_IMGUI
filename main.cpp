@@ -1,5 +1,8 @@
-﻿#undef TEST01
-#undef TEST02
+﻿#undef SOLID_COLOR
+#undef ANIMATED_COLOR
+#undef GRADIENT_COLOR
+#define ELEMENT_BUFFERS
+
 
 /**
  * 
@@ -71,6 +74,66 @@ static ImVec4 bgColor{0.0f, 0.0f, 0.4f, 0.0f}; // Dark Blue
 static bool isRunning_{true};
 
 
+#if defined(SOLID_COLOR) || defined(ANIMATED_COLOR)
+static constexpr int32_t kMaxVertexBuffer{9};
+#elif defined(GRADIENT_COLOR)
+static constexpr int32_t kMaxVertexBuffer{15};
+#elif defined(ELEMENT_BUFFERS)
+static constexpr int32_t kMaxVertexBuffer{30};
+#else
+#error "Max Size for Vertex Buffer is not defined"
+#endif
+
+// Calculate a buffer size in bytes
+static constexpr int8_t kVertexBufferSize{kMaxVertexBuffer * sizeof(GLfloat)};
+
+#if defined(ELEMENT_BUFFERS)
+std::array<GLuint, 3> elements{ 0, 1, 2 };
+#endif
+
+using VertexBuffer = std::array<GLfloat, kMaxVertexBuffer>;
+
+// An array of 3 vectors which represents 3 vertices
+// Coordinates:
+// - X : it's in on your right
+// - Y : it's in on your up
+// - Z : it's towards your back (yes, behind, not in front of you)
+// 
+// Or, you can use the RIGHT HAND RULE
+// - X : it's your thumb
+// - Y : it's your index
+// - Z : it's your middle finger. If you put your thumb to the right and your index
+//       to the sky, it will point to your back, too.
+//
+// The triangle below consists of 3 vertices in clockwise order.
+//
+static const VertexBuffer vertex_buffer_data_
+#if defined(SOLID_COLOR) || defined(ANIMATED_COLOR)
+  {
+    -0.5f, -0.5f, 0.0f,
+     0.5f, -0.5f, 0.0f,
+     0.0f,  0.5f, 0.0f,
+  };
+#elif defined(GRADIENT_COLOR)
+  {
+     0.0f,  0.5f, 1.0f, 0.0f, 0.0f,
+     0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+    -0.5f, -0.5f, 0.0f, 0.0f, 1.0f,
+  };
+#elif defined(ELEMENT_BUFFERS)
+  {
+    -0.5f,  0.5f, 1.0f, 0.0f, 0.0f, // Top-left     (index: 0)
+     0.5f,  0.5f, 0.0f, 1.0f, 0.0f, // Top-right    (index: 1)
+     0.5f, -0.5f, 0.0f, 0.0f, 1.0f, // Bottom-right (index: 2)
+    -0.5f, -0.5f, 1.0f, 1.0f, 1.0f  // Bottom-left  (index: 3)
+  };
+#else
+#error "Invalid Vertex Creation"
+#endif
+
+
+#if defined(SOLID_COLOR) || defined(ANIMATED_COLOR) || defined(GRADIENT_COLOR)
+
 // 
 // 
 // Camera: https://learnopengl.com/Getting-started/Camera
@@ -90,10 +153,20 @@ glm::vec3 cameraFront{0.0f, 0.0f, -1.0f};
 //                                    // "upwards" direction, towards positive Y.
 glm::vec3 cameraUp{0.0f, 1.0f,  0.0f};
 
-
+//
+//
 glm::mat4 projection_matrix_{0.0f};
+
+//
+//
 glm::mat4 view_matrix_{0.0f};
+
+//
+//
 glm::mat4 model_matrix_{0.0f};
+
+#endif
+
 
 static std::string LoadFile(const std::string &filename);
 static GLuint CreateShader(const ShaderType type, const std::string &shaderSrc);
@@ -200,57 +273,17 @@ GLuint LoadShaders(const std::string &vertex_file_path, const std::string &fragm
 }
 
 
-std::pair<GLint, GLint> PrepareVertexBuffer() {
-  
+static std::pair<GLuint, GLuint> PrepareVertexBuffer() {
 
   // @BEGIN - Vertex Buffer Object - VBO
-  //
-#if defined(TEST01) || defined(TEST02)
-  static constexpr int32_t kMaxVertexBuffer{9};
-#else
-  static constexpr int32_t kMaxVertexBuffer{15};
-#endif
-  // Calculate a buffer size in bytes
-  static constexpr int8_t kVertexBufferSize{kMaxVertexBuffer * sizeof(GLfloat)};
-  //
-  // An array of 3 vectors which represents 3 vertices
-  // Coordinates:
-  // - X : it's in on your right
-  // - Y : it's in on your up
-  // - Z : it's towards your back (yes, behind, not in front of you)
-  // 
-  // Or, you can use the RIGHT HAND RULE
-  // - X : it's your thumb
-  // - Y : it's your index
-  // - Z : it's your middle finger. If you put your thumb to the right and your index
-  //       to the sky, it will point to your back, too.
-  //
-  // The triangle below consists of 3 vertices in clockwise order.
-  //
-  using VertexBuffer = std::array<GLfloat, kMaxVertexBuffer>;
-#if defined(TEST01) || defined(TEST02)
-  static const VertexBuffer vertex_buffer_data_{ -0.5f, -0.5f, 0.0f,
-                                                  0.5f, -0.5f, 0.0f,
-                                                  0.0f,  0.5f, 0.0f, };
-#else
-  static const VertexBuffer vertex_buffer_data_{  0.0f,  0.5f, 1.0f, 0.0f, 0.0f,
-                                                  0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
-                                                 -0.5f, -0.5f, 0.0f, 0.0f, 1.0f, };
-#endif
-
-  //
-  //
-  //
   auto vertex_buffer_data = reinterpret_cast<const void *>(vertex_buffer_data_.data());
-  //
-  // 
   // Upload the vertex data to the Graphics Card.
   // It's important because the memory o your Graphics Card is much faster and won't
   // have to send the data again every time your scene needs to be rendered (about
   // 60 times per second).
   // 
   // Identify our vertex buffer
-  GLuint vertex_buffer_index_;
+  GLuint vertex_buffer_index_{0};
   // Generate one buffer, put the resulting identifier in vertex buffer
   glGenBuffers(1, &vertex_buffer_index_);
   // The following commands will talk about our 'vertex buffer index' buffer.
@@ -263,14 +296,9 @@ std::pair<GLint, GLint> PrepareVertexBuffer() {
   // times (e.g. the world).
   glBufferData(GL_ARRAY_BUFFER, kVertexBufferSize, vertex_buffer_data, GL_STATIC_DRAW);
   // @END - Vertex Buffer Object - VBO
-
-
-
-
+  // 
   // @BEGIN - Vertex Array Object - VAO
-  // 
-  // 
-  GLuint vertex_array_index_;
+  GLuint vertex_array_index_{0};
   // Create Vertex Array Object.
   glGenVertexArrays(1, &vertex_array_index_);
   // Bind it
@@ -281,6 +309,24 @@ std::pair<GLint, GLint> PrepareVertexBuffer() {
   // It references the VBOs.
   glBindVertexArray(vertex_array_index_);
   // @END - Vertex Array Object - VAO
+
+
+#if defined(ELEMENT_BUFFERS)
+  // Reuse existing vertices.
+  // It can save a lot of memory when working with real 3D models.
+  // Each point is usually occupied by a corner of three triangles.
+  std::vector<GLuint> elements{ 0, 1, 2,
+                                2, 3, 0 };
+
+  // It's loaded into video memory through a VBO (Vertex Buffer Object)
+  // @BEGIN - Element Buffer Object - EBO
+  GLuint element_buffer_index_{0};
+  glGenBuffers(1, &element_buffer_index_);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, element_buffer_index_);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.size() * sizeof(GLfloat), elements.data(), GL_STATIC_DRAW);
+  // @END - Element Buffer Object - EBO
+#endif
+
 
   return std::make_pair(vertex_buffer_index_, vertex_array_index_);
 }
@@ -335,6 +381,7 @@ auto main(int argc, char **argv) -> int {
     if (action == GLFW_REPEAT) {
         constexpr float cameraSpeed{0.05f}; // adjust accordingly
 
+#if defined(SOLID_COLOR) || defined(ANIMATED_COLOR) || defined(GRADIENT_COLOR)
         if(key == GLFW_KEY_LEFT) {
           cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
         }
@@ -350,6 +397,8 @@ auto main(int argc, char **argv) -> int {
         if(key == GLFW_KEY_DOWN) {
           cameraPos -= cameraSpeed * cameraFront;
         }
+#endif
+
     }
 
   });
@@ -366,18 +415,26 @@ auto main(int argc, char **argv) -> int {
 
 
   const std::string relative_path_{"../../../"};
-#if defined(TEST01)
+
+#if defined(SOLID_COLOR)
   const std::string shader_filename{"SolidColor"};
-#elseif defined(TEST02)
+#elif defined(ANIMATED_COLOR)
   const std::string shader_filename{"AnimatedSolidColor"};
-#else
+#elif defined(GRADIENT_COLOR) || defined(ELEMENT_BUFFERS)
   const std::string shader_filename{"GradientColor"};
+#else
 #endif
+
+
+
   std::string vertexShaderFilename_{relative_path_ + shader_filename + ".vertexshader"};
   std::string fragmentShaderFilename_{relative_path_ + shader_filename + ".fragmentshader"};
 
 
-    // glm::ortho(xmin, xmax, ymin, ymax, zmin, zmax)
+
+#if defined(SOLID_COLOR) || defined(ANIMATED_COLOR) || defined(GRADIENT_COLOR)
+
+  // glm::ortho(xmin, xmax, ymin, ymax, zmin, zmax)
   // Specifies a logical 2D coordinate system which is to be mapped into the window positions
   // indicated.  Often one matches the coordinates to match the size of the window being
   // rendered to.
@@ -395,7 +452,7 @@ auto main(int argc, char **argv) -> int {
   view_matrix_ = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
   model_matrix_ = glm::mat4{1.0f};
 
-
+#endif
 
 
 
@@ -412,6 +469,8 @@ auto main(int argc, char **argv) -> int {
   GLuint program_id_ = LoadShaders(vertexShaderFilename_,
                                    fragmentShaderFilename_);
 
+
+
   //
   // 
   // GLint glGetUniformLocation(GLuint program, const GLchar *name);
@@ -427,8 +486,8 @@ auto main(int argc, char **argv) -> int {
   //
   GLint matrix_id_{0};
   //GLuint matrix_id_ = glGetUniformLocation(program_id_, "MVP");
-#if defined(TEST01)
-#elseif defined(TEST02)
+#if defined(SOLID_COLOR)
+#elif defined(ANIMATED_COLOR)
   GLint triangleColor{0};
   triangleColor = glGetUniformLocation(program_id_, "triangleColor");
   switch(triangleColor) {
@@ -438,28 +497,34 @@ auto main(int argc, char **argv) -> int {
   }
   printf("triangleColor: '%d'\n", triangleColor);
 
-
-
+  // ???
+  glBindFragDataLocation(program_id_, 0, "outColor");
+#elif defined(GRADIENT_COLOR) || defined(ELEMENT_BUFFERS)
   // ???
   glBindFragDataLocation(program_id_, 0, "outColor");
 #else
-  // ???
-  glBindFragDataLocation(program_id_, 0, "outColor");
+#error "????"
 #endif
+
 
 
 
   // Retrieve a reference to the 'position' input in the vertex shader.
   GLint positionAttrib{0};
-
   positionAttrib = glGetAttribLocation(program_id_, "position");
 
-  #if defined(TEST01)
-  #elif defined(TEST02)
-  #else
+
+
+
+#if defined(GRADIENT_COLOR) || defined(ELEMENT_BUFFERS)
   GLint colorAttrib{0};
   colorAttrib = glGetAttribLocation(program_id_, "color");
-  #endif
+#endif
+
+
+
+
+
 
   IMGUI_CHECKVERSION();
 
@@ -492,11 +557,12 @@ auto main(int argc, char **argv) -> int {
     // @BEGIN - ???
     auto t_now = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration_cast<std::chrono::duration<float>>(t_now - t_start).count();
-#if defined(TEST01)
-#elseif defined(TEST02)
-    glUniform3f(triangleColor, (sin(time * 4.0f) + 1.0f) / 2.0f, 0.0f, 0.0f);
+
+#if defined(SOLID_COLOR)
     // Set a solid WHITE color
     //glUniform3f(triangleColor, 1.0f, 1.0f, 1.0f);
+#elif defined(ANIMATED_COLOR)
+    glUniform3f(triangleColor, (sin(time * 4.0f) + 1.0f) / 2.0f, 0.0f, 0.0f);
 #else
 #endif
     // @END - ???
@@ -505,17 +571,21 @@ auto main(int argc, char **argv) -> int {
     glClearColor(bgColor.x, bgColor.y, bgColor.z, bgColor.w);
     glClear(GL_COLOR_BUFFER_BIT);
 
+
+#if defined(SOLID_COLOR) || defined(ANIMATED_COLOR) || defined(GRADIENT_COLOR)
     //view_matrix_ = glm::lookAt(eye, center, up);
     view_matrix_ = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
     glm::mat4 MVP = projection_matrix_ * view_matrix_ * model_matrix_;
 
-    // Use the shader
-    glUseProgram(program_id_);
-
     //
     //glUniformMatrix4fv(matrix_id_, 1, GL_FALSE, &MVP[0][0]);
+#endif
 
 
+
+
+    // Use the shader
+    glUseProgram(program_id_);
 
     // @BEGIN - Draw a triangle
     // 1st attribute buffer: vertices
@@ -527,15 +597,19 @@ auto main(int argc, char **argv) -> int {
     //                            GLboolean normalized,
     //                            GLsizei stride,
     //                            const void* pointer);
-#if defined(TEST01) || defined(TEST02)
+#if defined(SOLID_COLOR) || defined(ANIMATED_COLOR)
     GLint vertexAttribSize{3};
     GLsizei vertexAttribStride{0};
     const void* vertexAttribPointer{(void *) 0};
-#else
+#elif defined(GRADIENT_COLOR) || defined(ELEMENT_BUFFERS)
     GLint vertexAttribSize{2};
     GLsizei vertexAttribStride{5 * sizeof(GLfloat)};
     const void* vertexAttribPointer{(void *) 0};
+#else
 #endif
+
+
+#if defined(SOLID_COLOR) || defined(ANIMATED_COLOR) || defined(GRADIENT_COLOR) || defined(ELEMENT_BUFFERS)
     glVertexAttribPointer(positionAttrib,      // Reference the input attribute.
                                                // No particular reason for 0 (check vertex
                                                // the shader: "layout(location = 0)"),
@@ -554,10 +628,11 @@ auto main(int argc, char **argv) -> int {
                                                // the start of the array the attribute occurs.
                                                // There're no other attributes, use '0'
     );
+#endif
 
 
-#if defined(TEST01) || defined(TEST02)
-#else
+#if defined(SOLID_COLOR) || defined(ANIMATED_COLOR)
+#elif defined(GRADIENT_COLOR) || defined(ELEMENT_BUFFERS)
     GLint colorAttribSize{3};
     GLsizei colorAttribStride{5 * sizeof(GLfloat)};
     const void* colorAttribPointer{(void *) (2 * sizeof(GLfloat))};
@@ -582,22 +657,33 @@ auto main(int argc, char **argv) -> int {
                                                // the start of the array the attribute occurs.
                                                // There're no other attributes, use '0'
     );
+#else
 #endif
 
 
+#if defined(SOLID_COLOR) || defined(ANIMATED_COLOR) || defined(GRADIENT_COLOR)
     // Draw the triangle. Starting from vertex 0; 3 vertices total -> 1 triangle
     glDrawArrays(GL_TRIANGLES, 0, 3);
+#elif defined(ELEMENT_BUFFERS)
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+#else
+#error "Invalid Vertex Creation"
+#endif
+
+
 
     glDisableVertexAttribArray(positionAttrib);
 
-#if defined(TEST01) || defined(TEST02)
-#else
+
+#if defined(SOLID_COLOR) || defined(ANIMATED_COLOR)
+#elif defined(GRADIENT_COLORS) || defined(ELEMENT_BUFFERS)
     glDisableVertexAttribArray(colorAttrib);
+#else
 #endif
     // @END - Draw a triangle
 
 
-
+#if 0
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -632,8 +718,6 @@ auto main(int argc, char **argv) -> int {
       if (ImGui::Button("Reset Center Position")) cameraFront = glm::vec3{0.0f, 0.0f, -1.0f}; // @TODO It's not a good idea to create a new object
     ImGui::End();
 
-
-
     ImGui::Begin("Hello, world!");
       static float colorEdit[4] = { bgColor.x, bgColor.y, bgColor.z, bgColor.w };
       ImGui::ColorEdit4("Background Color", colorEdit);
@@ -647,14 +731,9 @@ auto main(int argc, char **argv) -> int {
     ImGui::End();
     // END - MainMenuBar
 
-
-
-
     ImGui::Render();
 
-
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
 
     auto io = ImGui::GetIO();
     if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
@@ -663,7 +742,7 @@ auto main(int argc, char **argv) -> int {
       ImGui::RenderPlatformWindowsDefault();
       glfwMakeContextCurrent(backup_current_context);
     }
-
+#endif
 
     glfwSwapBuffers(window);
     glfwPollEvents();
@@ -674,6 +753,8 @@ auto main(int argc, char **argv) -> int {
 
   // Cleanup VBO
   // @TODO Should vertex be used??
+  // 
+  //glDeleteBuffers(1, &element_buffer_index_);
   //glDeleteBuffers(1, &vertex_buffer_index_);
   //glDeleteVertexArrays(1, &vertex_array_index_);
 
