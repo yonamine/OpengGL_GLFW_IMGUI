@@ -1,15 +1,10 @@
 #version 330 core
 
-layout(location = 0) in vec3 vertexPosition_modelspace;
-//in vec2 position;
-
-// Values that stay constant for the whole mesh.
-// 'uniform' allows you to pass data to the shaders.
-uniform mat4 MVP;
-
+in vec2 position;
 
 void main()
 {
-    // Output position of the vertex, in clip space : MVP * position
-    gl_Position =  MVP * vec4(vertexPosition_modelspace, 1);
+    gl_Position.xy = position;
+    gl_Position.z = 0.0;
+    gl_Position.w = 1.0;
 }

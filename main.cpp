@@ -1,4 +1,7 @@
-﻿/**
+﻿#undef TEST01
+#undef TEST02
+
+/**
  * 
  * 
  * 
@@ -28,6 +31,7 @@
 #include <vector>
 #include <chrono>
 #include <thread>
+#include <utility>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -196,6 +200,91 @@ GLuint LoadShaders(const std::string &vertex_file_path, const std::string &fragm
 }
 
 
+std::pair<GLint, GLint> PrepareVertexBuffer() {
+  
+
+  // @BEGIN - Vertex Buffer Object - VBO
+  //
+#if defined(TEST01) || defined(TEST02)
+  static constexpr int32_t kMaxVertexBuffer{9};
+#else
+  static constexpr int32_t kMaxVertexBuffer{15};
+#endif
+  // Calculate a buffer size in bytes
+  static constexpr int8_t kVertexBufferSize{kMaxVertexBuffer * sizeof(GLfloat)};
+  //
+  // An array of 3 vectors which represents 3 vertices
+  // Coordinates:
+  // - X : it's in on your right
+  // - Y : it's in on your up
+  // - Z : it's towards your back (yes, behind, not in front of you)
+  // 
+  // Or, you can use the RIGHT HAND RULE
+  // - X : it's your thumb
+  // - Y : it's your index
+  // - Z : it's your middle finger. If you put your thumb to the right and your index
+  //       to the sky, it will point to your back, too.
+  //
+  // The triangle below consists of 3 vertices in clockwise order.
+  //
+  using VertexBuffer = std::array<GLfloat, kMaxVertexBuffer>;
+#if defined(TEST01) || defined(TEST02)
+  static const VertexBuffer vertex_buffer_data_{ -0.5f, -0.5f, 0.0f,
+                                                  0.5f, -0.5f, 0.0f,
+                                                  0.0f,  0.5f, 0.0f, };
+#else
+  static const VertexBuffer vertex_buffer_data_{  0.0f,  0.5f, 1.0f, 0.0f, 0.0f,
+                                                  0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+                                                 -0.5f, -0.5f, 0.0f, 0.0f, 1.0f, };
+#endif
+
+  //
+  //
+  //
+  auto vertex_buffer_data = reinterpret_cast<const void *>(vertex_buffer_data_.data());
+  //
+  // 
+  // Upload the vertex data to the Graphics Card.
+  // It's important because the memory o your Graphics Card is much faster and won't
+  // have to send the data again every time your scene needs to be rendered (about
+  // 60 times per second).
+  // 
+  // Identify our vertex buffer
+  GLuint vertex_buffer_index_;
+  // Generate one buffer, put the resulting identifier in vertex buffer
+  glGenBuffers(1, &vertex_buffer_index_);
+  // The following commands will talk about our 'vertex buffer index' buffer.
+  // Upload the actual data 
+  glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_index_);
+  // Create and initialize a buffer object's data store. Give our vertices to OpenGL
+  // The final parameter is very important and its value depends on the usage of
+  // the vertex data.
+  // 'GL_STATIC_DRAW': the vertex data will be uploaded once and drawn many 
+  // times (e.g. the world).
+  glBufferData(GL_ARRAY_BUFFER, kVertexBufferSize, vertex_buffer_data, GL_STATIC_DRAW);
+  // @END - Vertex Buffer Object - VBO
+
+
+
+
+  // @BEGIN - Vertex Array Object - VAO
+  // 
+  // 
+  GLuint vertex_array_index_;
+  // Create Vertex Array Object.
+  glGenVertexArrays(1, &vertex_array_index_);
+  // Bind it
+  // Every time you call 'glVertexAttribPointer', the information will be stored in
+  // the VAO. This makes switching between different vertex data and vertex formats
+  // as easy as binding a different VAO.
+  // VAO does not store any vertex data by itself.
+  // It references the VBOs.
+  glBindVertexArray(vertex_array_index_);
+  // @END - Vertex Array Object - VAO
+
+  return std::make_pair(vertex_buffer_index_, vertex_array_index_);
+}
+
 
 /**
  *
@@ -277,8 +366,13 @@ auto main(int argc, char **argv) -> int {
 
 
   const std::string relative_path_{"../../../"};
+#if defined(TEST01)
   const std::string shader_filename{"SolidColor"};
-  //const std::string shader_filename{"AnimatedSolidColor"};
+#elseif defined(TEST02)
+  const std::string shader_filename{"AnimatedSolidColor"};
+#else
+  const std::string shader_filename{"GradientColor"};
+#endif
   std::string vertexShaderFilename_{relative_path_ + shader_filename + ".vertexshader"};
   std::string fragmentShaderFilename_{relative_path_ + shader_filename + ".fragmentshader"};
 
@@ -302,86 +396,70 @@ auto main(int argc, char **argv) -> int {
   model_matrix_ = glm::mat4{1.0f};
 
 
-  
 
-  // @BEGIN - Vertex Buffer Object - VBO
-  //
-  static constexpr int32_t kMaxVertexBuffer{9};
-  // Calculate a buffer size in bytes
-  static constexpr int8_t kVertexBufferSize{kMaxVertexBuffer * sizeof(GLfloat)};
-  //
-  // An array of 3 vectors which represents 3 vertices
-  // Coordinates:
-  // - X : it's in on your right
-  // - Y : it's in on your up
-  // - Z : it's towards your back (yes, behind, not in front of you)
-  // 
-  // Or, you can use the RIGHT HAND RULE
-  // - X : it's your thumb
-  // - Y : it's your index
-  // - Z : it's your middle finger. If you put your thumb to the right and your index
-  //       to the sky, it will point to your back, too.
-  //
-  // The triangle below consists of 3 vertices in clockwise order.
-  //
-  using VertexBuffer = std::array<GLfloat, kMaxVertexBuffer>;
-  static const VertexBuffer vertex_buffer_data_{ -0.5f, -0.5f, 0.0f,
-                                                  0.5f, -0.5f, 0.0f,
-                                                  0.0f,  0.5f, 0.0f, };
-  //
-  //
-  //
-  auto vertex_buffer_data = reinterpret_cast<const void *>(vertex_buffer_data_.data());
-  //
-  // 
-  // Upload the vertex data to the Graphics Card.
-  // It's important because the memory o your Graphics Card is much faster and won't
-  // have to send the data again every time your scene needs to be rendered (about
-  // 60 times per second).
-  // 
-  // Identify our vertex buffer
-  GLuint vertex_buffer_index_;
-  // Generate one buffer, put the resulting identifier in vertex buffer
-  glGenBuffers(1, &vertex_buffer_index_);
-  // The following commands will talk about our 'vertex buffer index' buffer.
-  // Upload the actual data 
-  glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_index_);
-  // Create and initialize a buffer object's data store. Give our vertices to OpenGL
-  // The final parameter is very important and its value depends on the usage of
-  // the vertex data.
-  // 'GL_STATIC_DRAW': the vertex data will be uploaded once and drawn many 
-  // times (e.g. the world).
-  glBufferData(GL_ARRAY_BUFFER, kVertexBufferSize, vertex_buffer_data, GL_STATIC_DRAW);
-  // @END - Vertex Buffer Object - VBO
+
+
+  auto vertex = PrepareVertexBuffer();
 
 
 
 
-  // @BEGIN - Vertex Array Object - VAO
+  //
   // 
   // 
-  GLuint vertex_array_index_;
-  // Create Vertex Array Object.
-  glGenVertexArrays(1, &vertex_array_index_);
-  // Bind it
-  // Every time you call 'glVertexAttribPointer', the information will be stored in
-  // the VAO. This makes switching between different vertex data and vertex formats
-  // as easy as binding a different VAO.
-  // VAO does not store any vertex data by itself.
-  // It references the VBOs.
-  glBindVertexArray(vertex_array_index_);
-  GLuint program_id_ = LoadShaders(vertexShaderFilename_, fragmentShaderFilename_);
-  GLuint matrix_id_ = glGetUniformLocation(program_id_, "MVP");
-  //glBindFragDataLocation(program_id_, 0, "outColor");
+  // 
+  //
+  GLuint program_id_ = LoadShaders(vertexShaderFilename_,
+                                   fragmentShaderFilename_);
+
+  //
+  // 
+  // GLint glGetUniformLocation(GLuint program, const GLchar *name);
+  // 
+  // 'name': it must be an active uniform variable name in 'program' that is not:
+  //    1. structure,
+  //    2. array of structures or
+  //    3. subcomponent of a vector or a matrix
+  // 
+  // It returns -1 if 'name' does not correspond to an active uniform variable in
+  // 'program'. If 'name' starts with the reserved prefix "gl_" or if 'name' is
+  // associated with an atomic counter or a named uniform block.
+  //
+  GLint matrix_id_{0};
+  //GLuint matrix_id_ = glGetUniformLocation(program_id_, "MVP");
+#if defined(TEST01)
+#elseif defined(TEST02)
+  GLint triangleColor{0};
+  triangleColor = glGetUniformLocation(program_id_, "triangleColor");
+  switch(triangleColor) {
+    case GL_INVALID_VALUE: printf("GL_INVALID_VALUE\n"); break;
+    case GL_INVALID_OPERATION: printf("GL_INVALID_OPERATION\n"); break;
+    default: printf("Invalid Uniform Location: 0x%x\n", triangleColor); break;
+  }
+  printf("triangleColor: '%d'\n", triangleColor);
+
+
+
+  // ???
+  glBindFragDataLocation(program_id_, 0, "outColor");
+#else
+  // ???
+  glBindFragDataLocation(program_id_, 0, "outColor");
+#endif
+
+
+
   // Retrieve a reference to the 'position' input in the vertex shader.
-  //GLint positionAttrib = glGetAttribLocation(program_id_, "position");
   GLint positionAttrib{0};
-  // @END - Vertex Array Object - VAO
 
+  positionAttrib = glGetAttribLocation(program_id_, "position");
 
-  GLuint triangleColor = glGetUniformLocation(program_id_, "triangleColor");
-  glUniform3f(triangleColor, 1.0f, 0.0f, 0.0f);
-
+  #if defined(TEST01)
+  #elif defined(TEST02)
+  #else
+  GLint colorAttrib{0};
+  colorAttrib = glGetAttribLocation(program_id_, "color");
+  #endif
 
   IMGUI_CHECKVERSION();
 
@@ -414,7 +492,13 @@ auto main(int argc, char **argv) -> int {
     // @BEGIN - ???
     auto t_now = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration_cast<std::chrono::duration<float>>(t_now - t_start).count();
+#if defined(TEST01)
+#elseif defined(TEST02)
     glUniform3f(triangleColor, (sin(time * 4.0f) + 1.0f) / 2.0f, 0.0f, 0.0f);
+    // Set a solid WHITE color
+    //glUniform3f(triangleColor, 1.0f, 1.0f, 1.0f);
+#else
+#endif
     // @END - ???
 
 
@@ -429,29 +513,87 @@ auto main(int argc, char **argv) -> int {
     glUseProgram(program_id_);
 
     //
-    glUniformMatrix4fv(matrix_id_, 1, GL_FALSE, &MVP[0][0]);
+    //glUniformMatrix4fv(matrix_id_, 1, GL_FALSE, &MVP[0][0]);
+
+
 
     // @BEGIN - Draw a triangle
     // 1st attribute buffer: vertices
     glEnableVertexAttribArray(positionAttrib);
-    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_index_);
-    glVertexAttribPointer(positionAttrib, // Reference the input attribute.
-                                          // No particular reason for 0 (check vertex
-                                          // the shader: "layout(location = 0)"),
-                                          // but must match the layout in the shader.
-                          3,              // number of values for that input.
-                          GL_FLOAT,       // type of each component.
-                          GL_FALSE,       // Should it be normalized? [-1.0, 1.0].
-                          0,              // stride: how many bytes are between each
-                                          // position attribute in the array. '0' means
-                                          // that there's no data in between
-                          (void *) 0      // array buffer offset: how many bytes from
-                                          // the start of the array the attribute occurs.
-                                          // There're no other attributes, use '0'
+    // glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_index_); @TODO Can I remove it??
+    // void glVertexAttribPointer(GLuint index,
+    //                            GLint size,
+    //                            GLenum type,
+    //                            GLboolean normalized,
+    //                            GLsizei stride,
+    //                            const void* pointer);
+#if defined(TEST01) || defined(TEST02)
+    GLint vertexAttribSize{3};
+    GLsizei vertexAttribStride{0};
+    const void* vertexAttribPointer{(void *) 0};
+#else
+    GLint vertexAttribSize{2};
+    GLsizei vertexAttribStride{5 * sizeof(GLfloat)};
+    const void* vertexAttribPointer{(void *) 0};
+#endif
+    glVertexAttribPointer(positionAttrib,      // Reference the input attribute.
+                                               // No particular reason for 0 (check vertex
+                                               // the shader: "layout(location = 0)"),
+                                               // but must match the layout in the shader.
+                          vertexAttribSize,    // Number of components per generic vertex attribute.
+                                               // Must be 1, 2, 3, 4.
+                                               // Additionally, the symbolic constant GL_BGRA is accepted
+                                               // by glVertexAttribPointer.
+                                               // The initial value is 4.
+                          GL_FLOAT,            // type of each component.
+                          GL_FALSE,            // Should it be normalized? [-1.0, 1.0].
+                          vertexAttribStride,  // stride: how many bytes are between each
+                                               // position attribute in the array. '0' means
+                                               // that there's no data in between
+                          vertexAttribPointer  // array buffer offset: how many bytes from
+                                               // the start of the array the attribute occurs.
+                                               // There're no other attributes, use '0'
     );
+
+
+#if defined(TEST01) || defined(TEST02)
+#else
+    GLint colorAttribSize{3};
+    GLsizei colorAttribStride{5 * sizeof(GLfloat)};
+    const void* colorAttribPointer{(void *) (2 * sizeof(GLfloat))};
+
+    glEnableVertexAttribArray(colorAttrib);
+
+    glVertexAttribPointer(colorAttrib,         // Reference the input attribute.
+                                               // No particular reason for 0 (check vertex
+                                               // the shader: "layout(location = 0)"),
+                                               // but must match the layout in the shader.
+                          colorAttribSize,     // Number of components per generic vertex attribute.
+                                               // Must be 1, 2, 3, 4.
+                                               // Additionally, the symbolic constant GL_BGRA is accepted
+                                               // by glVertexAttribPointer.
+                                               // The initial value is 4.
+                          GL_FLOAT,            // type of each component.
+                          GL_FALSE,            // Should it be normalized? [-1.0, 1.0].
+                          colorAttribStride,   // stride: how many bytes are between each
+                                               // position attribute in the array. '0' means
+                                               // that there's no data in between
+                          colorAttribPointer   // array buffer offset: how many bytes from
+                                               // the start of the array the attribute occurs.
+                                               // There're no other attributes, use '0'
+    );
+#endif
+
+
     // Draw the triangle. Starting from vertex 0; 3 vertices total -> 1 triangle
     glDrawArrays(GL_TRIANGLES, 0, 3);
+
     glDisableVertexAttribArray(positionAttrib);
+
+#if defined(TEST01) || defined(TEST02)
+#else
+    glDisableVertexAttribArray(colorAttrib);
+#endif
     // @END - Draw a triangle
 
 
@@ -527,10 +669,13 @@ auto main(int argc, char **argv) -> int {
     glfwPollEvents();
   }
 
-  // Cleanup VBO
-  glDeleteBuffers(1, &vertex_buffer_index_);
-  glDeleteVertexArrays(1, &vertex_array_index_);
+
   glDeleteProgram(program_id_);
+
+  // Cleanup VBO
+  // @TODO Should vertex be used??
+  //glDeleteBuffers(1, &vertex_buffer_index_);
+  //glDeleteVertexArrays(1, &vertex_array_index_);
 
   std::cout << "Closing Window: '" << window << "'...\n";
   glfwTerminate();
