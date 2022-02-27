@@ -11,6 +11,8 @@ set (BIN "a.out")
 set (SOURCE_FILES
     "main.cpp"
     "stb_image.h"
+    "WavefrontObj.cpp"
+    "WavefrontObj.hpp"
     "imgui/imconfig.h"
     "imgui/imgui.cpp"
     "imgui/imgui.h"
@@ -30,7 +32,7 @@ set (SOURCE_FILES
 
 find_package (GLEW REQUIRED)
 find_package (glfw3 CONFIG REQUIRED)
-find_package(glm CONFIG REQUIRED)
+find_package (glm CONFIG REQUIRED)
 
 set (LIBRARIES "GLEW::GLEW"
                "glm::glm"
@@ -38,3 +40,13 @@ set (LIBRARIES "GLEW::GLEW"
 
 add_executable (${BIN} ${SOURCE_FILES})
 target_link_libraries (${BIN} PRIVATE ${LIBRARIES})
+
+
+find_package (GTest REQUIRED)
+add_executable (UnitTest "WavefrontObjTest.cpp"
+                         "WavefrontObj.cpp"
+                         "WavefrontObj.hpp")
+target_link_libraries (UnitTest PRIVATE
+                       "GTest::GTest"
+                       "GTest::gtest_main")
+add_test(AllTestsInTest UnitTest)
